@@ -30,7 +30,7 @@
 #define SCRATCH_NODE_VARIABLE				12
 
 struct global_vars {
-	/* Injection - Variables. [GLOBALS] */
+	/*[GLOBALS]*/
 };
 
 struct scratch_action {
@@ -116,8 +116,8 @@ handle_branch_flow (int branch_idx) {
 void 
 PrgInit (TA * p_ta_array, int ta_count) {
 	sensor_db_init (&sesnor_list);
-	/* Injection - Adding sensors. [SENSORS] */
-	/* Injection - Adding flow. [FLOW] */
+	/*[SENSORS]*/
+	/*[FLOW]*/
 }
 
 /*-----------------------------------------------------------------------------
