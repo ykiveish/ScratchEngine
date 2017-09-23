@@ -45,6 +45,11 @@ struct scratch_motor {
 	int value;
 };
 
+struct scratch_distance_sensor {
+	int id;
+	int value;
+};
+
 struct scratch_node {
 	int 				type;
 	void 				*data;
@@ -70,6 +75,10 @@ struct context {
 };
 struct context this;
 
+struct global_sensorss {
+	/*[SENSORS]*/
+};
+
 void
 sensor_db_init (struct sensor_db *item) {
 	int i = 0;
@@ -80,7 +89,7 @@ sensor_db_init (struct sensor_db *item) {
 }
 
 int
-sesnsor_db_add (struct sensor_db *item, void * sensor) {
+sensor_db_add (struct sensor_db *item, void * sensor) {
 	item->sensors[item->index] = item;
 	item->index++;
 	return 1;
@@ -116,7 +125,7 @@ handle_branch_flow (int branch_idx) {
 void 
 PrgInit (TA * p_ta_array, int ta_count) {
 	sensor_db_init (&sesnor_list);
-	/*[SENSORS]*/
+	/*[ADD_SENSORS]*/
 	/*[FLOW]*/
 }
 

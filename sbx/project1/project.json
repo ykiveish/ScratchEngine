@@ -1,0 +1,93 @@
+{
+	"objName": "Stage",
+	"variables": [{
+			"name": "Test",
+			"value": 22528,
+			"isPersistent": false
+		}],
+	"scripts": [[209,
+			217,
+			[["fischertechnik ROBO-TXT\u001fonInput", "חיישן מרחק", 0, ">", "I1"],
+				["setVar:to:", "Test", "22"],
+				["fischertechnik ROBO-TXT\u001fdoSetMotorSpeedDirSync", "M1", "M2", 8, "קדימה"],
+				["doRepeat", 10, [["changeVar:by:", "Test", 10]]]]]],
+	"sounds": [{
+			"soundName": "pop",
+			"soundID": 0,
+			"md5": "83a9787d4cb6f3b7632b4ddfebf74367.wav",
+			"sampleCount": 258,
+			"rate": 11025,
+			"format": ""
+		}],
+	"costumes": [{
+			"costumeName": "backdrop1",
+			"baseLayerID": 1,
+			"baseLayerMD5": "b61b1077b0ea1931abee9dbbfa7903ff.png",
+			"bitmapResolution": 2,
+			"rotationCenterX": 480,
+			"rotationCenterY": 360
+		}],
+	"currentCostumeIndex": 0,
+	"penLayerMD5": "5c81a336fab8be57adc039a8a2b33ca9.png",
+	"penLayerID": 0,
+	"tempoBPM": 60,
+	"videoAlpha": 0.5,
+	"children": [{
+			"target": "Stage",
+			"cmd": "getVar:",
+			"param": "Test",
+			"color": 15629590,
+			"label": "Test",
+			"mode": 1,
+			"sliderMin": 0,
+			"sliderMax": 100,
+			"isDiscrete": true,
+			"x": 5,
+			"y": 5,
+			"visible": true
+		}],
+	"info": {
+		"userAgent": "Mozilla\/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit\/537.36 (KHTML, like Gecko) Chrome\/60.0.3112.113 Safari\/537.36",
+		"swfVersion": "v448",
+		"flashVersion": "WIN 27,0,0,130",
+		"spriteCount": 0,
+		"scriptCount": 1,
+		"videoOn": false,
+		"savedExtensions": [{
+				"menus": {
+					"openCloseSensors": ["מתג", "חיישן מגנטיות", "מחסום אור", "חיישן אינפרה-רד"],
+					"inputModes": ["מתח דיגיטלי", "התנגדות דיגיטלית", "מתח אנלוגי", "התנגדות אנלוגית", "אולטרהסוניק"],
+					"motorDirections": ["קדימה", "אחורה"],
+					"inputSensors": ["חיישן צבע", "חיישן מרחק", "חיישן טמפרטורה", "חיישן אור"],
+					"compares": ["<", ">", "="],
+					"motors": ["M1", "M2", "M3", "M4"],
+					"openClose": ["נפתח", "נסגר"],
+					"inputs": ["I1", "I2", "I3", "I4", "I5", "I6", "I7", "I8"],
+					"outputs": ["O1", "O2", "O3", "O4", "O5", "O6", "O7", "O8"],
+					"counters": ["C1", "C2", "C3", "C4"],
+					"outputValues": [0, 1, 2, 3, 4, 5, 6, 7, 8]
+				},
+				"extensionName": "fischertechnik ROBO-TXT",
+				"javascriptURL": "https:\/\/adihadas.github.io\/ftscratch\/src\/ext_heb.js",
+				"blockSpecs": [["h", "כאשר %m.openCloseSensors %m.inputs %m.openClose", "onOpenClose", "מתג", "I1", "נפתח"],
+					["h", "כאשר ערכו של מונה %n %m.compares %m.counters", "onCounter", 0, ">", "C1"],
+					["h", "כאשר ערכו של %m.inputSensors %n %m.compares %m.inputs", "onInput", "חיישן צבע", 0, ">", "I1"],
+					["r", "קרא ערכו של מונה %m.counters", "getCounter", "C1"],
+					["r", "קרא ערכו של %m.inputSensors %m.inputs", "getSensor", "חיישן צבע", "I1"],
+					["b", "האם %m.openCloseSensors %m.inputs סגור", "isClosed", "מתג", "I1"],
+					[" ", "נגן צליל %n", "doPlaySound", 1],
+					["w", "נגן צליל %n עד לסיומו", "doPlaySoundWait", 1],
+					[" ", "הפעל נורה %m.outputs בעוצמת הארה %n", "doSetLamp", "O1", 0],
+					[" ", "אפס מונה %m.counters", "doResetCounter", "C1"],
+					[" ", "הפעל מנוע %m.motors במהירות %n", "doSetMotorSpeed", "M1", 8],
+					[" ", "הפעל מנוע %m.motors במהירות %n %m.motorDirections", "doSetMotorSpeedDir", "M1", 8, "קדימה"],
+					[" ", "קבע כיוון מנוע %m.motors ל %m.motorDirections", "doSetMotorDir", "M1", "קדימה"],
+					[" ", "הפעל מנוע %m.motors למרחק %n צעדים במהירות %n %m.motorDirections", "doSetMotorSpeedDirDist", "M1", 100, 8, "קדימה"],
+					[" ", "הפעל מנועים %m.motors וגם  %m.motors במהירות %n %m.motorDirections", "doSetMotorSpeedDirSync", "M1", "M2", 8, "קדימה"],
+					[" ", "הפעל מנועים %m.motors וגם %m.motors למרחק %n צעדים במהירות %n %m.motorDirections", "doSetMotorSpeedDirDistSync", "M1", "M2", 100, 8, "קדימה"],
+					[" ", "עצור מנוע %m.motors", "doStopMotor", "M1"],
+					[" ", "הגדר סוג קלט %m.inputs ל %m.inputModes", "doConfigureInput", "I1", "מתח דיגיטלי"],
+					[" ", "איפוס", "reset"]]
+			}]
+	}
+}
