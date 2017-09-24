@@ -75,9 +75,13 @@ struct context {
 };
 struct context this;
 
-struct global_sensorss {
+struct global_sensors {
 	/*[SENSORS]*/
 };
+
+struct global_nodes {
+	/*[NODES]*/
+}
 
 void
 sensor_db_init (struct sensor_db *item) {
@@ -126,6 +130,9 @@ void
 PrgInit (TA * p_ta_array, int ta_count) {
 	sensor_db_init (&sesnor_list);
 	/*[ADD_SENSORS]*/
+	
+	/*[INIT_FLOW]*/
+	
 	/*[FLOW]*/
 }
 
