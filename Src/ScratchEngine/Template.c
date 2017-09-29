@@ -32,9 +32,7 @@
 #define SCRATCH_NODE_END_LOOPS				14
 
 struct global_vars {
-	float var_1;
-	float var_3;
-	float var_2;
+	/*[GLOBALS]*/
 };
 
 struct scratch_action {
@@ -81,18 +79,12 @@ struct context {
 struct context this;
 
 struct global_sensors {
-	struct scratch_distance_sensor 	distSensor;
-	struct scratch_motor 			motor;
+	/*[SENSORS]*/
 };
 struct global_sensors g_sensors;
 
 struct global_nodes {
-	struct scratch_node setVariable_1;
-	struct scratch_node setVariable_2;
-	struct scratch_node setVariable_3;
-	struct scratch_node forLoop_1;
-	struct scratch_node waitCmd_3;
-	struct scratch_node forLoopEnd_1;
+	/*[NODES]*/
 };
 struct global_nodes g_nodes;
 
@@ -142,34 +134,11 @@ handle_branch_flow (int branch_idx) {
 void 
 PrgInit (TA * p_ta_array, int ta_count) {
 	sensor_db_init (&sesnor_list);
-	sensor_db_add (&sesnor_list, (void *)&(g_sensors.distSensor));
-	sensor_db_add (&sesnor_list, (void *)&(g_sensors.motor));
+	/*[ADD_SENSORS]*/
 	
-	g_nodes.setVariable_1.data = &(globals.var_1);
-	g_nodes.setVariable_1.type = SCRATCH_NODE_VARIABLE;
-	g_nodes.setVariable_1.index = 0;
-	g_nodes.setVariable_2.data = &(globals.var_2);
-	g_nodes.setVariable_2.type = SCRATCH_NODE_VARIABLE;
-	g_nodes.setVariable_2.index = 1;
-	g_nodes.setVariable_3.data = &(globals.var_3);
-	g_nodes.setVariable_3.type = SCRATCH_NODE_VARIABLE;
-	g_nodes.setVariable_3.index = 2;
-	g_nodes.forLoop_1.type = SCRATCH_NODE_FOR;
-	g_nodes.forLoop_1.index = 3;
-	g_nodes.waitCmd_3.data = &(globals.var_3);
-	g_nodes.waitCmd_3.type = SCRATCH_NODE_WAIT;
-	g_nodes.waitCmd_3.index = 4;
-	g_nodes.forLoopEnd_1.data = &(g_nodes.forLoop_1);
-	g_nodes.forLoopEnd_1.type = SCRATCH_NODE_END_LOOPS;
-	g_nodes.forLoopEnd_1.index = 5;
+	/*[INIT_FLOW]*/
 	
-	this.branch[0].current = this.branch[0].start;
-	scratch_node_list[0] = &g_nodes.setVariable_1;
-	scratch_node_list[1] = &g_nodes.setVariable_2;
-	scratch_node_list[2] = &g_nodes.setVariable_3;
-	scratch_node_list[3] = &g_nodes.forLoop_1;
-	scratch_node_list[4] = &g_nodes.waitCmd_3;
-	scratch_node_list[5] = &g_nodes.forLoopEnd_1;
+	/*[FLOW]*/
 }
 
 /*-----------------------------------------------------------------------------
