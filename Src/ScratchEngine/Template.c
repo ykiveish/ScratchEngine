@@ -16,6 +16,12 @@
 
 #include "ROBO_TX_PRG.h"
 
+#define TRUE 								1
+#define FALSE 								0
+
+#define FORWARD 							1
+#define BACKWARD 							0
+
 #define MAX_BRANCHES 						8
 #define MAX_SCRATCH_NODES 					256
 #define MAX_SCRATCH_SENSORS 				64
@@ -35,30 +41,43 @@ struct global_vars {
 	/*[GLOBALS]*/
 };
 
-struct scratch_action {
+struct scratch_action_compare {
 	int 	type;
-	void 	*from;
-	void 	*to;
-	int 	value;
+	int		compare_type;
+};
+
+struct parameter {
+	int 	reference;
+	void 	*value;
 };
 
 struct scratch_motor {
-	int id;
-	int value;
+	int 				id;
+	int 				pin;
+	struct parameter	direction;
+	struct parameter	speed;
+	struct parameter	distance;
 };
 
 struct scratch_distance_sensor {
-	int id;
-	int value;
+	int 				id;
+	int 				pin;
+	float				data;
+	struct parameter	distance;
+};
+
+struct scratch_loop_data {
+	int count;
 };
 
 struct scratch_node {
 	int 				type;
 	int					index;
-	void 				*data;
-	void				*action;
-	struct scratch_node *jump;
 	struct scratch_node *next;
+	
+	void 				*data;
+	struct scratch_node *jump;
+	void				*action;
 };
 
 struct sensor_db {
@@ -75,6 +94,8 @@ struct flow_branch {
 struct context {
 	struct flow_branch 	branch[MAX_BRANCHES];
 	int 				branch_count;
+	
+	/*[GLOBAL_DATA]*/
 };
 struct context this;
 
@@ -82,6 +103,11 @@ struct global_sensors {
 	/*[SENSORS]*/
 };
 struct global_sensors g_sensors;
+
+struct global_actions {
+	/*[ACTIONS]*/
+};
+struct global_actions g_actions;
 
 struct global_nodes {
 	/*[NODES]*/
@@ -106,7 +132,7 @@ sensor_db_add (struct sensor_db *item, void * sensor) {
 
 struct global_vars 	globals;
 struct sensor_db 	sesnor_list;
-struct scratch_node *scratch_node_list[MAX_SCRATCH_NODES];
+void * scratch_node_list[MAX_SCRATCH_NODES];
 
 void
 handle_branch_flow (int branch_idx) {
@@ -134,10 +160,14 @@ handle_branch_flow (int branch_idx) {
 void 
 PrgInit (TA * p_ta_array, int ta_count) {
 	sensor_db_init (&sesnor_list);
+	
+	// Add sensors to the DB.
 	/*[ADD_SENSORS]*/
 	
+	// Initiata the Scratch flow items.
 	/*[INIT_FLOW]*/
 	
+	// Build the flow.
 	/*[FLOW]*/
 }
 

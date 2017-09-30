@@ -1,3 +1,4 @@
 {
-	"Items" : [["חיישן מרחק", "DistanceSensor"]]
+	"Items" : [ ["חיישן מרחק", "DistanceSensor"],
+				["קדימה", "Forward"] ]
 }

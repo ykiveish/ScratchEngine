@@ -12,9 +12,11 @@ Nodes = ""
 InitNodes = ""
 AddNodes = ""
 Flow = ""
+GlobalData = ""
 SensorTableTranslator = {}
+Pinouts = {}
 
-FlowIndex = -1;
+FlowIndex = 0;
 LoopIndex = 1;
 
 class Stack:
@@ -71,22 +73,70 @@ class CScriptParser:
 		self.VariabesTBLTranslator = variabesTBLTranslator
 	
 	def FischertechnikBlock (self, block):
+		global Nodes
+		global InitNodes
+		global Flow
 		global SensorTableTranslator
 		global Sensors
 		global AddSensors
+		global FlowIndex
+		global Pinouts
 		
 		Header = block[0]
 		if "onInput" in Header:
 			print "_IF_SENSOR_VALUE_IS_"
 			
 			if block[1] in SensorTableTranslator:
-				if 	SensorTableTranslator[block[1]] in "DistanceSensor":
-					Sensors = Sensors + "struct scratch_distance_sensor \tdistSensor;\n\t"
-					AddSensors = AddSensors + "sensor_db_add (&sesnor_list, (void *)&(g_sensors.distSensor));\n\t"
+				if SensorTableTranslator[block[1]] in "DistanceSensor":
 					print "_SENSOR_DISTANCE_"
+					Sensors = Sensors + "struct scratch_distance_sensor \tdistSensor;\n\t"
+					# Set distance.
+					AddSensors = AddSensors + "g_sensors.distSensor.distance.reference = FALSE;\n\t"
+					AddSensors = AddSensors + "g_sensors.distSensor.distance.value = (void *)" + str(block[2]) + ";\n\t"
+					AddSensors = AddSensors + "g_sensors.distSensor.pin = " + str(Pinouts[block[4]]) + ";\n\t"
+					AddSensors = AddSensors + "sensor_db_add (&sesnor_list, (void *)&(g_sensors.distSensor));\n\t\n\t"
+					
+					Nodes = Nodes + "struct scratch_node distSensor;\n\t"
+					InitNodes = InitNodes + "g_nodes.distSensor.index = " + str(FlowIndex) + ";\n\t"
+					InitNodes = InitNodes + "g_nodes.distSensor.data = (void *)&(g_sensors.distSensor);\n\t"
+					InitNodes = InitNodes + "g_nodes.distSensor.type = SCRATCH_NODE_ULTRASONIC_SENSOR;\n\t\n\t"
+					
+					Flow = Flow + "scratch_node_list[" + str(FlowIndex) + "] = (void *)&g_nodes.distSensor;\n\t";
+					FlowIndex = FlowIndex + 1
 		elif "doSetMotorSpeedDirDistSync" in Header:
+			DistanceBlock = block[3]
+			SpeedBlock = block[4]
+			
+			DistanceVariable = self.VariabesTBLTranslator.Get(DistanceBlock[1])
+			SpeedVariable = self.VariabesTBLTranslator.Get(SpeedBlock[1])
+			
+			print str(DistanceVariable) + " " + str(SpeedVariable)
+			
+			# Create sensor imstance.
 			Sensors = Sensors + "struct scratch_motor \t\t\tmotor;\n\t"
-			AddSensors = AddSensors + "sensor_db_add (&sesnor_list, (void *)&(g_sensors.motor));\n\t"
+			# Set speed.
+			AddSensors = AddSensors + "g_sensors.motor.speed.reference = TRUE;\n\t"
+			AddSensors = AddSensors + "g_sensors.motor.speed.value = (void *)&(globals.var_" + str(SpeedVariable) + ");\n\t"
+			# Set distance.
+			AddSensors = AddSensors + "g_sensors.motor.distance.reference = TRUE;\n\t"
+			AddSensors = AddSensors + "g_sensors.motor.distance.value = (void *)&(globals.var_" + str(DistanceVariable) + ");\n\t"
+			# Set direction.
+			if block[5] in SensorTableTranslator:
+				if SensorTableTranslator[block[5]] in "Forward":
+					AddSensors = AddSensors + "g_sensors.motor.direction.reference = FALSE;\n\t"
+					AddSensors = AddSensors + "g_sensors.motor.direction.value = FORWARD;\n\t"
+				elif SensorTableTranslator[block[5]] in "Backward":
+					AddSensors = AddSensors + "g_sensors.motor.direction.reference = FALSE;\n\t"
+					AddSensors = AddSensors + "g_sensors.motor.direction.value = BACKWARD;\n\t"
+			# Add sensor.
+			AddSensors = AddSensors + "sensor_db_add (&sesnor_list, (void *)&(g_sensors.motor));\n\t\n\t"
+			# Create block and add to the flow.
+			Nodes = Nodes + "struct scratch_node doSetMotorSpeedDirDistSync;\n\t"
+			InitNodes = InitNodes + "g_nodes.doSetMotorSpeedDirDistSync.index = " + str(FlowIndex) + ";\n\t"
+			InitNodes = InitNodes + "g_nodes.doSetMotorSpeedDirDistSync.data = (void *)&(g_sensors.motor);\n\t"
+			InitNodes = InitNodes + "g_nodes.doSetMotorSpeedDirDistSync.type = SCRATCH_NODE_MOTOR_ENGINE;\n\t\n\t"
+			Flow = Flow + "scratch_node_list[" + str(FlowIndex) + "] = (void *)&g_nodes.doSetMotorSpeedDirDistSync;\n\t";
+			FlowIndex = FlowIndex + 1
 			print "_SET_MOTOR_POWER_ON_SPEED_DIRECTION_"
 	
 	def ParseBlocks (self, flow):
@@ -94,6 +144,7 @@ class CScriptParser:
 		global InitNodes
 		global Flow
 		global FlowIndex
+		global GlobalData
 		
 		for block in flow:
 			Header = block[0]
@@ -101,37 +152,45 @@ class CScriptParser:
 				self.FischertechnikBlock(block)
 			elif "setVar:to:" in Header:
 				print "_SET_VARIABLE_VALUE_"
-				Nodes = Nodes + "struct scratch_node setVariable_" + str(self.VariabesTBLTranslator.Get(block[1])) + ";\n\t"
-				InitNodes = InitNodes + "g_nodes.setVariable_" + str(self.VariabesTBLTranslator.Get(block[1])) + ".data = &(globals.var_" + str(self.VariabesTBLTranslator.Get(block[1])) + ");\n\t"
-				InitNodes = InitNodes + "g_nodes.setVariable_" + str(self.VariabesTBLTranslator.Get(block[1])) + ".type = SCRATCH_NODE_VARIABLE;\n\t"
-				InitNodes = InitNodes + "g_nodes.setVariable_" + str(self.VariabesTBLTranslator.Get(block[1])) + ".index = " + str(FlowIndex) + ";\n\t"
-				Flow = Flow + "scratch_node_list[" + str(FlowIndex) + "] = &g_nodes.setVariable_" + str(self.VariabesTBLTranslator.Get(block[1])) + ";\n\t";
+				VarId = self.VariabesTBLTranslator.Get(block[1])
+				Nodes = Nodes + "struct scratch_node setVariable_" + str(VarId) + ";\n\t"
+				InitNodes = InitNodes + "g_nodes.setVariable_" + str(VarId) + ".index = " + str(FlowIndex) + ";\n\t"
+				InitNodes = InitNodes + "g_nodes.setVariable_" + str(VarId) + ".data = (void *)&(globals.var_" + str(VarId) + ");\n\t"
+				InitNodes = InitNodes + "g_nodes.setVariable_" + str(VarId) + ".type = SCRATCH_NODE_VARIABLE;\n\t\n\t"
+				Flow = Flow + "scratch_node_list[" + str(FlowIndex) + "] = (void *)&g_nodes.setVariable_" + str(VarId) + ";\n\t"
+				FlowIndex = FlowIndex + 1
 			elif "wait:elapsed:from:" in Header:
 				print "_WAIT_ELAPSED_TIME_"
 				timer = block[1]
-				Nodes = Nodes + "struct scratch_node waitCmd_" + str(self.VariabesTBLTranslator.Get(timer[1])) + ";\n\t"
-				InitNodes = InitNodes + "g_nodes.waitCmd_" + str(self.VariabesTBLTranslator.Get(timer[1])) + ".data = &(globals.var_" + str(self.VariabesTBLTranslator.Get(timer[1])) + ");\n\t"
-				InitNodes = InitNodes + "g_nodes.waitCmd_" + str(self.VariabesTBLTranslator.Get(timer[1])) + ".type = SCRATCH_NODE_WAIT;\n\t"
-				InitNodes = InitNodes + "g_nodes.waitCmd_" + str(self.VariabesTBLTranslator.Get(timer[1])) + ".index = " + str(FlowIndex) + ";\n\t"
-				Flow = Flow + "scratch_node_list[" + str(FlowIndex) + "] = &g_nodes.waitCmd_" + str(self.VariabesTBLTranslator.Get(timer[1])) + ";\n\t";
+				VarId = self.VariabesTBLTranslator.Get(timer[1])
+				Nodes = Nodes + "struct scratch_node waitCmd_" + str(VarId) + ";\n\t"
+				InitNodes = InitNodes + "g_nodes.waitCmd_" + str(VarId) + ".index = " + str(FlowIndex) + ";\n\t"
+				InitNodes = InitNodes + "g_nodes.waitCmd_" + str(VarId) + ".data = (void *)&(globals.var_" + str(VarId) + ");\n\t"
+				InitNodes = InitNodes + "g_nodes.waitCmd_" + str(VarId) + ".type = SCRATCH_NODE_WAIT;\n\t\n\t"
+				Flow = Flow + "scratch_node_list[" + str(FlowIndex) + "] = (void *)&g_nodes.waitCmd_" + str(VarId) + ";\n\t"
+				FlowIndex = FlowIndex + 1
 			elif "doRepeat" in Header:
 				print "_REPEAT_FLOW_"
 				self.FlowControl.push("REPEAT_FLOW");
 				Nodes = Nodes + "struct scratch_node forLoop_" + str(LoopIndex) + ";\n\t"
-				InitNodes = InitNodes + "g_nodes.forLoop_" + str(LoopIndex) + ".type = SCRATCH_NODE_FOR;\n\t"
 				InitNodes = InitNodes + "g_nodes.forLoop_" + str(LoopIndex) + ".index = " + str(FlowIndex) + ";\n\t"
-				Flow = Flow + "scratch_node_list[" + str(FlowIndex) + "] = &g_nodes.forLoop_" + str(LoopIndex) + ";\n\t";
+				InitNodes = InitNodes + "g_nodes.forLoop_" + str(LoopIndex) + ".type = SCRATCH_NODE_FOR;\n\t"
+				Flow = Flow + "scratch_node_list[" + str(FlowIndex) + "] = (void *)&g_nodes.forLoop_" + str(LoopIndex) + ";\n\t";
+				GlobalData = GlobalData + "struct scratch_loop_data forLoop_" + str(LoopIndex) + ";\n\t"
+				InitNodes = InitNodes + "this.forLoop_" + str(LoopIndex) + ".count = 0;\n\t"
+				InitNodes = InitNodes + "g_nodes.forLoop_" + str(LoopIndex) + ".data = (void *)&(this.forLoop_" + str(LoopIndex) + ");\n\t\n\t"
+				FlowIndex = FlowIndex + 1
 				self.ParseBlocks(block[2])
 				if "REPEAT_FLOW" in self.FlowControl.pop():
 					print "EXIT _REPEAT_FLOW_"
 					Nodes = Nodes + "struct scratch_node forLoopEnd_" + str(LoopIndex) + ";\n\t"
-					InitNodes = InitNodes + "g_nodes.forLoopEnd_" + str(LoopIndex) + ".data = &(g_nodes.forLoop_" + str(LoopIndex) + ");\n\t"
-					InitNodes = InitNodes + "g_nodes.forLoopEnd_" + str(LoopIndex) + ".type = SCRATCH_NODE_END_LOOPS;\n\t"
 					InitNodes = InitNodes + "g_nodes.forLoopEnd_" + str(LoopIndex) + ".index = " + str(FlowIndex) + ";\n\t"
-					Flow = Flow + "scratch_node_list[" + str(FlowIndex) + "] = &g_nodes.forLoopEnd_" + str(LoopIndex) + ";\n\t";
+					InitNodes = InitNodes + "g_nodes.forLoopEnd_" + str(LoopIndex) + ".jump = &(g_nodes.forLoop_" + str(LoopIndex) + ");\n\t"
+					InitNodes = InitNodes + "g_nodes.forLoopEnd_" + str(LoopIndex) + ".type = SCRATCH_NODE_END_LOOPS;\n\t\n\t"
+					Flow = Flow + "scratch_node_list[" + str(FlowIndex) + "] = (void *)&g_nodes.forLoopEnd_" + str(LoopIndex) + ";\n\t";
+					FlowIndex = FlowIndex + 1
 				else:
 					sys.exit()
-			FlowIndex = FlowIndex + 1
 	
 	def Parse (self, script):
 		global Code
@@ -140,6 +199,7 @@ class CScriptParser:
 		global Nodes
 		global InitNodes
 		global Flow
+		global GlobalData
 		
 		for flow in script:
 			print "FLOW"
@@ -156,11 +216,14 @@ class CScriptParser:
 		Nodes = Nodes[:-2]
 		InitNodes = InitNodes[:-2]
 		Flow = Flow[:-2]
+		GlobalData = GlobalData[:-2]
+		
 		Code = Code.replace("/*[SENSORS]*/", Sensors);
 		Code = Code.replace("/*[ADD_SENSORS]*/", AddSensors);
 		Code = Code.replace("/*[NODES]*/", Nodes);
 		Code = Code.replace("/*[INIT_FLOW]*/", InitNodes);
 		Code = Code.replace("/*[FLOW]*/", Flow);
+		Code = Code.replace("/*[GLOBAL_DATA]*/", GlobalData);
 
 tblVarTranc = CVariabesTBLTranslator()
 parser = CScriptParser(tblVarTranc)
@@ -175,6 +238,16 @@ def LoadSensorTranslator():
 	for item in Items:
 		SensorTableTranslator[item[0]] = item[1]
 
+def LoadPinouts():
+	global Pinouts
+	file = open("../../Misc/Pinouts", "r")
+	jsonStr = file.read().decode('utf-8')
+	data = json.loads(jsonStr, encoding='utf-8')
+	
+	Items = data["Items"]
+	for item in Items:
+		Pinouts[item[0]] = item[1]
+
 def LoadC ():
 	global Code
 	file = open("Template.c", "r+")
@@ -182,7 +255,7 @@ def LoadC ():
 
 def SaveC ():
 	global Code
-	file = open("ScratchEngine.c", "r+")
+	file = open("ScratchEngine.c", "w")
 	file.write (Code)
 	
 def main():
@@ -202,6 +275,7 @@ def main():
 	
 	LoadC()
 	LoadSensorTranslator()
+	LoadPinouts()
 	tblVarTranc.LoadToC()
 	parser.Parse(Script)
 

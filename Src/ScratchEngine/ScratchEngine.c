@@ -16,6 +16,12 @@
 
 #include "ROBO_TX_PRG.h"
 
+#define TRUE 								1
+#define FALSE 								0
+
+#define FORWARD 							1
+#define BACKWARD 							0
+
 #define MAX_BRANCHES 						8
 #define MAX_SCRATCH_NODES 					256
 #define MAX_SCRATCH_SENSORS 				64
@@ -44,23 +50,38 @@ struct scratch_action {
 	int 	value;
 };
 
+struct parameter {
+	int 	reference;
+	void 	*value;
+};
+
 struct scratch_motor {
-	int id;
-	int value;
+	int 				id;
+	int 				pin;
+	struct parameter	direction;
+	struct parameter	speed;
+	struct parameter	distance;
 };
 
 struct scratch_distance_sensor {
-	int id;
-	int value;
+	int 				id;
+	int 				pin;
+	float				data;
+	struct parameter	distance;
+};
+
+struct scratch_loop_data {
+	int count;
 };
 
 struct scratch_node {
 	int 				type;
 	int					index;
-	void 				*data;
-	void				*action;
-	struct scratch_node *jump;
 	struct scratch_node *next;
+	
+	void 				*data;
+	struct scratch_node *jump;
+	void				*action;
 };
 
 struct sensor_db {
@@ -77,6 +98,8 @@ struct flow_branch {
 struct context {
 	struct flow_branch 	branch[MAX_BRANCHES];
 	int 				branch_count;
+	
+	struct scratch_loop_data forLoop_1;
 };
 struct context this;
 
@@ -87,10 +110,12 @@ struct global_sensors {
 struct global_sensors g_sensors;
 
 struct global_nodes {
+	struct scratch_node distSensor;
 	struct scratch_node setVariable_1;
 	struct scratch_node setVariable_2;
 	struct scratch_node setVariable_3;
 	struct scratch_node forLoop_1;
+	struct scratch_node doSetMotorSpeedDirDistSync;
 	struct scratch_node waitCmd_3;
 	struct scratch_node forLoopEnd_1;
 };
@@ -114,7 +139,7 @@ sensor_db_add (struct sensor_db *item, void * sensor) {
 
 struct global_vars 	globals;
 struct sensor_db 	sesnor_list;
-struct scratch_node *scratch_node_list[MAX_SCRATCH_NODES];
+void * scratch_node_list[MAX_SCRATCH_NODES];
 
 void
 handle_branch_flow (int branch_idx) {
@@ -142,34 +167,67 @@ handle_branch_flow (int branch_idx) {
 void 
 PrgInit (TA * p_ta_array, int ta_count) {
 	sensor_db_init (&sesnor_list);
+	
+	// Add sensors to the DB.
+	g_sensors.distSensor.distance.reference = FALSE;
+	g_sensors.distSensor.distance.value = (void *)30;
+	g_sensors.distSensor.pin = 8;
 	sensor_db_add (&sesnor_list, (void *)&(g_sensors.distSensor));
+	
+	g_sensors.motor.speed.reference = TRUE;
+	g_sensors.motor.speed.value = (void *)&(globals.var_2);
+	g_sensors.motor.distance.reference = TRUE;
+	g_sensors.motor.distance.value = (void *)&(globals.var_1);
+	g_sensors.motor.direction.reference = FALSE;
+	g_sensors.motor.direction.value = FORWARD;
 	sensor_db_add (&sesnor_list, (void *)&(g_sensors.motor));
 	
-	g_nodes.setVariable_1.data = &(globals.var_1);
-	g_nodes.setVariable_1.type = SCRATCH_NODE_VARIABLE;
-	g_nodes.setVariable_1.index = 0;
-	g_nodes.setVariable_2.data = &(globals.var_2);
-	g_nodes.setVariable_2.type = SCRATCH_NODE_VARIABLE;
-	g_nodes.setVariable_2.index = 1;
-	g_nodes.setVariable_3.data = &(globals.var_3);
-	g_nodes.setVariable_3.type = SCRATCH_NODE_VARIABLE;
-	g_nodes.setVariable_3.index = 2;
-	g_nodes.forLoop_1.type = SCRATCH_NODE_FOR;
-	g_nodes.forLoop_1.index = 3;
-	g_nodes.waitCmd_3.data = &(globals.var_3);
-	g_nodes.waitCmd_3.type = SCRATCH_NODE_WAIT;
-	g_nodes.waitCmd_3.index = 4;
-	g_nodes.forLoopEnd_1.data = &(g_nodes.forLoop_1);
-	g_nodes.forLoopEnd_1.type = SCRATCH_NODE_END_LOOPS;
-	g_nodes.forLoopEnd_1.index = 5;
 	
+	// Initiata the Scratch flow items.
+	g_nodes.distSensor.index = 0;
+	g_nodes.distSensor.data = (void *)&(g_sensors.distSensor);
+	g_nodes.distSensor.type = SCRATCH_NODE_ULTRASONIC_SENSOR;
+	
+	g_nodes.setVariable_1.index = 1;
+	g_nodes.setVariable_1.data = (void *)&(globals.var_1);
+	g_nodes.setVariable_1.type = SCRATCH_NODE_VARIABLE;
+	
+	g_nodes.setVariable_2.index = 2;
+	g_nodes.setVariable_2.data = (void *)&(globals.var_2);
+	g_nodes.setVariable_2.type = SCRATCH_NODE_VARIABLE;
+	
+	g_nodes.setVariable_3.index = 3;
+	g_nodes.setVariable_3.data = (void *)&(globals.var_3);
+	g_nodes.setVariable_3.type = SCRATCH_NODE_VARIABLE;
+	
+	g_nodes.forLoop_1.index = 4;
+	g_nodes.forLoop_1.type = SCRATCH_NODE_FOR;
+	this.forLoop_1.count = 0;
+	g_nodes.forLoop_1.data = (void *)&(this.forLoop_1);
+	
+	g_nodes.doSetMotorSpeedDirDistSync.index = 5;
+	g_nodes.doSetMotorSpeedDirDistSync.data = (void *)&(g_sensors.motor);
+	g_nodes.doSetMotorSpeedDirDistSync.type = SCRATCH_NODE_MOTOR_ENGINE;
+	
+	g_nodes.waitCmd_3.index = 6;
+	g_nodes.waitCmd_3.data = (void *)&(globals.var_3);
+	g_nodes.waitCmd_3.type = SCRATCH_NODE_WAIT;
+	
+	g_nodes.forLoopEnd_1.index = 7;
+	g_nodes.forLoopEnd_1.jump = &(g_nodes.forLoop_1);
+	g_nodes.forLoopEnd_1.type = SCRATCH_NODE_END_LOOPS;
+	
+	
+	// Build the flow.
 	this.branch[0].current = this.branch[0].start;
-	scratch_node_list[0] = &g_nodes.setVariable_1;
-	scratch_node_list[1] = &g_nodes.setVariable_2;
-	scratch_node_list[2] = &g_nodes.setVariable_3;
-	scratch_node_list[3] = &g_nodes.forLoop_1;
-	scratch_node_list[4] = &g_nodes.waitCmd_3;
-	scratch_node_list[5] = &g_nodes.forLoopEnd_1;
+	scratch_node_list[0] = (void *)&g_nodes.distSensor;
+	scratch_node_list[1] = (void *)&g_nodes.setVariable_1;
+	scratch_node_list[2] = (void *)&g_nodes.setVariable_2;
+	scratch_node_list[3] = (void *)&g_nodes.setVariable_3;
+	scratch_node_list[4] = (void *)&g_nodes.forLoop_1;
+	scratch_node_list[5] = (void *)&g_nodes.doSetMotorSpeedDirDistSync;
+	scratch_node_list[6] = (void *)&g_nodes.waitCmd_3;
+	scratch_node_list[7] = (void *)&g_nodes.forLoopEnd_1;
 }
 
 /*-----------------------------------------------------------------------------
