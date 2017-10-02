@@ -110,8 +110,6 @@ class CScriptParser:
 			DistanceVariable = self.VariabesTBLTranslator.Get(DistanceBlock[1])
 			SpeedVariable = self.VariabesTBLTranslator.Get(SpeedBlock[1])
 			
-			print str(DistanceVariable) + " " + str(SpeedVariable)
-			
 			# Create sensor imstance.
 			Sensors = Sensors + "struct scratch_motor \t\t\tmotor;\n\t"
 			# Set speed.
@@ -250,7 +248,8 @@ def LoadPinouts():
 
 def LoadC ():
 	global Code
-	file = open("Template.c", "r+")
+	#file = open("Template.c", "r+")
+	file = open("LinuxTemplate.c", "r+")
 	Code = file.read()
 
 def SaveC ():
@@ -281,7 +280,7 @@ def main():
 
 	print Code
 	SaveC ()
-	#call(["make.bat", ""])
+	call(["python", "make.sh", ""])
 
 if __name__ == "__main__":
     main()

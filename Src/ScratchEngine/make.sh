@@ -1,0 +1,1 @@
+gcc ScratchEngine.c -o ScratchEngine -I../../Common/
