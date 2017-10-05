@@ -14,7 +14,11 @@
 // free of any license obligations or authoring rights.
 //=============================================================================
 
-#include "ROBO_TX_PRG.h"
+// #include "ROBO_TX_PRG.h"
+#include "KeLibTxtDl.h"          // TXT Lib
+#include "FtShmem.h"             // TXT Transfer Area
+
+// #include <stdio.h>
 
 #define TRUE 								1
 #define FALSE 								0
@@ -36,6 +40,13 @@
 #define SCRATCH_NODE_VARIABLE				12
 #define SCRATCH_NODE_WAIT					13
 #define SCRATCH_NODE_END_LOOPS				14
+
+#define SCRATCH_ACTION_TYPE_COMPARE			1
+
+#define SCRATCH_COMPARE_TYPE_LESS			1
+
+void OperateMotor ();
+float ReadSensor ();
 
 struct global_vars {
 	/*[GLOBALS]*/
@@ -60,14 +71,11 @@ struct scratch_motor {
 };
 
 struct scratch_distance_sensor {
-	int 				id;
-	int 				pin;
-	float				data;
-	struct parameter	distance;
-};
-
-struct scratch_loop_data {
-	int count;
+	int 							id;
+	int 							pin;
+	float							data;
+	struct parameter				distance;
+	struct scratch_action_compare 	action;
 };
 
 struct scratch_node {
@@ -78,6 +86,12 @@ struct scratch_node {
 	void 				*data;
 	struct scratch_node *jump;
 	void				*action;
+};
+
+struct scratch_loop_data {
+	int limit;
+	int index;
+	scratch_node* node;
 };
 
 struct sensor_db {
@@ -95,9 +109,10 @@ struct context {
 	struct flow_branch 	branch[MAX_BRANCHES];
 	int 				branch_count;
 	void *				monitor_blocks[16];
+	int 				monitor_blocks_count;
 	/*[GLOBAL_DATA]*/
 };
-struct context this;
+struct context ctx;
 
 struct global_sensors {
 	/*[SENSORS]*/
@@ -124,7 +139,7 @@ sensor_db_init (struct sensor_db *item) {
 	int i = 0;
 	item->index = 0;
 	for (i = 0; i < MAX_SCRATCH_SENSORS; i++) {
-		item->sensors[i] = NULL;
+		item->sensors[i] = 0;
 	}
 }
 
@@ -141,29 +156,63 @@ void * scratch_node_list[MAX_SCRATCH_NODES];
 
 void
 handle_branch_flow (int branch_idx) {
-	struct scratch_node *current_node = this.branch[branch_idx].current;
+	struct scratch_node *current_node = ctx.branch[branch_idx].current;
 
 	switch (current_node->type) {
 		case SCRATCH_NODE_MOTOR_ENGINE:
+			OperateMotor ();
+		break;
+		case SCRATCH_NODE_ULTRASONIC_SENSOR: {
+			float value = ReadSensor();
+			scratch_distance_sensor* sensor = (scratch_distance_sensor *)current_node->data;
+			float* comparable = (float *)sensor->distance.value;
+
+			switch (sensor->action.compare_type) {
+				case SCRATCH_COMPARE_TYPE_LESS:
+					if (value > *comparable) {
+						// Value of sensor bigger than limit
+					}
+				break;
+				default:
+				break;
+			}
+		}
+		break;
+		case SCRATCH_NODE_FOR: {
+			scratch_loop_data* data = (scratch_loop_data *)current_node->data;
+			if (data->index < data->limit) {
+				data->index++;
+			} else {
+				// Go back to the end of loop.
+				ctx.branch[branch_idx].current = data->node;
+			}
+		}
+		break;
+		case SCRATCH_NODE_IF:
+			// Check the condition.
+		break;
+		case SCRATCH_NODE_VARIABLE:
+			// Update variable.
+		break;
+		case SCRATCH_NODE_WAIT:
+			// Just pause.
+		break;
+		case SCRATCH_NODE_END_LOOPS:
+			// Jump to start loop node.
 		break;
 		default:
 		break;
 	}
 
 	current_node = current_node->next;
+
+	// Handle monitor nodes.
 }
 
-/*-----------------------------------------------------------------------------
- * Function Name       : PrgInit
- *
- * This it the program initialization.
- * It is called once.
- *
- * p_ta_array - pointer to the array of transfer areas
- * ta_count - number of transfer areas in array (equal to TA_COUNT)
- *-----------------------------------------------------------------------------*/
 void 
-Setup (TA * p_ta_array, int ta_count) {
+Setup () {
+	ctx.monitor_blocks_count = 0;
+
 	sensor_db_init (&sesnor_list);
 	
 	// Add sensors to the DB.
@@ -176,26 +225,24 @@ Setup (TA * p_ta_array, int ta_count) {
 	/*[FLOW]*/
 }
 
-/*-----------------------------------------------------------------------------
- * Function Name       : PrgTic
- *
- * This is the main function of this program.
- * It is called every tic (1 ms) realtime.
- *
- * p_ta_array - pointer to the array of transfer areas
- * ta_count - number of transfer areas in array (equal to TA_COUNT)
- *-----------------------------------------------------------------------------*/
 int
-main (int argc, char ** argv)  {
-	TA * p_ta_array;
-	int ta_count;
+main (int argc, char ** argv) {
+	// FISH_X1_TRANSFER    *pTArea;
 	int branch_idx = 0,
-		branch_count = this.branch_count;
+		branch_count = ctx.branch_count;
 
-	Setup (p_ta_array, ta_count);
+	Setup ();
 	for (branch_idx = 0; branch_idx < branch_count; branch_idx++) {
 		handle_branch_flow (branch_idx);
 	}
 
     return 0;
+}
+
+void OperateMotor () {
+
+}
+
+float ReadSensor () {
+	return 0;
 }

@@ -84,24 +84,30 @@ class CScriptParser:
 		
 		Header = block[0]
 		if "onInput" in Header:
-			print "_IF_SENSOR_VALUE_IS_"
+			# print "_IF_SENSOR_VALUE_IS_"
 			
 			if block[1] in SensorTableTranslator:
 				if SensorTableTranslator[block[1]] in "DistanceSensor":
-					print "_SENSOR_DISTANCE_"
+					# print "_SENSOR_DISTANCE_"
 					Sensors = Sensors + "struct scratch_distance_sensor \tdistSensor;\n\t"
 					# Set distance.
 					AddSensors = AddSensors + "g_sensors.distSensor.distance.reference = FALSE;\n\t"
 					AddSensors = AddSensors + "g_sensors.distSensor.distance.value = (void *)" + str(block[2]) + ";\n\t"
 					AddSensors = AddSensors + "g_sensors.distSensor.pin = " + str(Pinouts[block[4]]) + ";\n\t"
+					AddSensors = AddSensors + "g_sensors.distSensor.action.type = SCRATCH_ACTION_TYPE_COMPARE;\n\t"
+					AddSensors = AddSensors + "g_sensors.distSensor.action.compare_type = SCRATCH_COMPARE_TYPE_LESS;\n\t"
 					AddSensors = AddSensors + "sensor_db_add (&sesnor_list, (void *)&(g_sensors.distSensor));\n\t\n\t"
 					
-					Nodes = Nodes + "struct scratch_node distSensor;\n\t"
-					InitNodes = InitNodes + "g_nodes.distSensor.index = " + str(FlowIndex) + ";\n\t"
-					InitNodes = InitNodes + "g_nodes.distSensor.data = (void *)&(g_sensors.distSensor);\n\t"
-					InitNodes = InitNodes + "g_nodes.distSensor.type = SCRATCH_NODE_ULTRASONIC_SENSOR;\n\t\n\t"
+					# Add node.
+					Nodes = Nodes + "struct scratch_node distSensorMonitor;\n\t"
+					InitNodes = InitNodes + "g_nodes.distSensorMonitor.index = " + str(FlowIndex) + ";\n\t"
+					InitNodes = InitNodes + "g_nodes.distSensorMonitor.data = (void *)&(g_sensors.distSensor);\n\t"
+					InitNodes = InitNodes + "g_nodes.distSensorMonitor.type = SCRATCH_NODE_ULTRASONIC_SENSOR;\n\t\n\t"
+
+					# Add monitor
+					InitNodes = InitNodes + "ctx.monitor_blocks[++ctx.monitor_blocks_count] = (void *)&(g_nodes.distSensorMonitor);\n\t"
 					
-					Flow = Flow + "scratch_node_list[" + str(FlowIndex) + "] = (void *)&g_nodes.distSensor;\n\t";
+					Flow = Flow + "scratch_node_list[" + str(FlowIndex) + "] = (void *)&g_nodes.distSensorMonitor;\n\t"
 					FlowIndex = FlowIndex + 1
 		elif "doSetMotorSpeedDirDistSync" in Header:
 			DistanceBlock = block[3]
@@ -122,7 +128,7 @@ class CScriptParser:
 			if block[5] in SensorTableTranslator:
 				if SensorTableTranslator[block[5]] in "Forward":
 					AddSensors = AddSensors + "g_sensors.motor.direction.reference = FALSE;\n\t"
-					AddSensors = AddSensors + "g_sensors.motor.direction.value = FORWARD;\n\t"
+					AddSensors = AddSensors + "g_sensors.motor.direction.value = (void *)FORWARD;\n\t"
 				elif SensorTableTranslator[block[5]] in "Backward":
 					AddSensors = AddSensors + "g_sensors.motor.direction.reference = FALSE;\n\t"
 					AddSensors = AddSensors + "g_sensors.motor.direction.value = BACKWARD;\n\t"
@@ -135,7 +141,7 @@ class CScriptParser:
 			InitNodes = InitNodes + "g_nodes.doSetMotorSpeedDirDistSync.type = SCRATCH_NODE_MOTOR_ENGINE;\n\t\n\t"
 			Flow = Flow + "scratch_node_list[" + str(FlowIndex) + "] = (void *)&g_nodes.doSetMotorSpeedDirDistSync;\n\t";
 			FlowIndex = FlowIndex + 1
-			print "_SET_MOTOR_POWER_ON_SPEED_DIRECTION_"
+			# print "_SET_MOTOR_POWER_ON_SPEED_DIRECTION_"
 	
 	def ParseBlocks (self, flow):
 		global Nodes
@@ -149,7 +155,7 @@ class CScriptParser:
 			if "fischertechnik" in Header:
 				self.FischertechnikBlock(block)
 			elif "setVar:to:" in Header:
-				print "_SET_VARIABLE_VALUE_"
+				# print "_SET_VARIABLE_VALUE_"
 				VarId = self.VariabesTBLTranslator.Get(block[1])
 				Nodes = Nodes + "struct scratch_node setVariable_" + str(VarId) + ";\n\t"
 				InitNodes = InitNodes + "g_nodes.setVariable_" + str(VarId) + ".index = " + str(FlowIndex) + ";\n\t"
@@ -158,7 +164,7 @@ class CScriptParser:
 				Flow = Flow + "scratch_node_list[" + str(FlowIndex) + "] = (void *)&g_nodes.setVariable_" + str(VarId) + ";\n\t"
 				FlowIndex = FlowIndex + 1
 			elif "wait:elapsed:from:" in Header:
-				print "_WAIT_ELAPSED_TIME_"
+				# print "_WAIT_ELAPSED_TIME_"
 				timer = block[1]
 				VarId = self.VariabesTBLTranslator.Get(timer[1])
 				Nodes = Nodes + "struct scratch_node waitCmd_" + str(VarId) + ";\n\t"
@@ -168,22 +174,24 @@ class CScriptParser:
 				Flow = Flow + "scratch_node_list[" + str(FlowIndex) + "] = (void *)&g_nodes.waitCmd_" + str(VarId) + ";\n\t"
 				FlowIndex = FlowIndex + 1
 			elif "doRepeat" in Header:
-				print "_REPEAT_FLOW_"
+				# print "_REPEAT_FLOW_"
 				self.FlowControl.push("REPEAT_FLOW");
 				Nodes = Nodes + "struct scratch_node forLoop_" + str(LoopIndex) + ";\n\t"
 				InitNodes = InitNodes + "g_nodes.forLoop_" + str(LoopIndex) + ".index = " + str(FlowIndex) + ";\n\t"
 				InitNodes = InitNodes + "g_nodes.forLoop_" + str(LoopIndex) + ".type = SCRATCH_NODE_FOR;\n\t"
 				Flow = Flow + "scratch_node_list[" + str(FlowIndex) + "] = (void *)&g_nodes.forLoop_" + str(LoopIndex) + ";\n\t";
 				GlobalData = GlobalData + "struct scratch_loop_data forLoop_" + str(LoopIndex) + ";\n\t"
-				InitNodes = InitNodes + "this.forLoop_" + str(LoopIndex) + ".count = 0;\n\t"
-				InitNodes = InitNodes + "g_nodes.forLoop_" + str(LoopIndex) + ".data = (void *)&(this.forLoop_" + str(LoopIndex) + ");\n\t\n\t"
+				InitNodes = InitNodes + "ctx.forLoop_" + str(LoopIndex) + ".limit = " + str(block[1]) + ";\n\t"
+				InitNodes = InitNodes + "ctx.forLoop_" + str(LoopIndex) + ".index = 0;\n\t"
+				InitNodes = InitNodes + "g_nodes.forLoop_" + str(LoopIndex) + ".data = (void *)&(ctx.forLoop_" + str(LoopIndex) + ");\n\t\n\t"
 				FlowIndex = FlowIndex + 1
 				self.ParseBlocks(block[2])
 				if "REPEAT_FLOW" in self.FlowControl.pop():
-					print "EXIT _REPEAT_FLOW_"
+					# print "EXIT _REPEAT_FLOW_"
 					Nodes = Nodes + "struct scratch_node forLoopEnd_" + str(LoopIndex) + ";\n\t"
 					InitNodes = InitNodes + "g_nodes.forLoopEnd_" + str(LoopIndex) + ".index = " + str(FlowIndex) + ";\n\t"
 					InitNodes = InitNodes + "g_nodes.forLoopEnd_" + str(LoopIndex) + ".jump = &(g_nodes.forLoop_" + str(LoopIndex) + ");\n\t"
+					InitNodes = InitNodes + "ctx.forLoop_" + str(LoopIndex) + ".node = &(g_nodes.forLoopEnd_" + str(LoopIndex) + ");\n\t"
 					InitNodes = InitNodes + "g_nodes.forLoopEnd_" + str(LoopIndex) + ".type = SCRATCH_NODE_END_LOOPS;\n\t\n\t"
 					Flow = Flow + "scratch_node_list[" + str(FlowIndex) + "] = (void *)&g_nodes.forLoopEnd_" + str(LoopIndex) + ";\n\t";
 					FlowIndex = FlowIndex + 1
@@ -200,14 +208,13 @@ class CScriptParser:
 		global GlobalData
 		
 		for flow in script:
-			print "FLOW"
+			# print "FLOW"
 			self.FlowControl.push("FLOW");
-			Flow = Flow + "this.branch[0].current = this.branch[0].start;\n\t";
+			Flow = Flow + "ctx.branch[0].current = ctx.branch[0].start;\n\t";
 			self.ParseBlocks(flow[2])
-			if "FLOW" in self.FlowControl.pop():
-				print "EXIT FLOW"
-			else:
+			if "FLOW" not in self.FlowControl.pop():
 				sys.exit()
+				
 		
 		Sensors = Sensors[:-2]
 		AddSensors = AddSensors[:-2]
@@ -278,9 +285,9 @@ def main():
 	tblVarTranc.LoadToC()
 	parser.Parse(Script)
 
-	print Code
+	# print Code
 	SaveC ()
-	call(["python", "make.sh", ""])
+	# call(["python", "make.sh", ""])
 
 if __name__ == "__main__":
     main()
