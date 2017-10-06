@@ -52,6 +52,14 @@
 void OperateMotor ();
 float ReadSensor ();
 
+//============================================================================
+// Common debugging stuff for RoboProLib
+//============================================================================
+unsigned int DebugFlags;
+FILE *DebugFile;
+
+FISH_X1_TRANSFER *pTArea;
+
 struct global_vars {
 	/*[GLOBALS]*/
 };
@@ -253,15 +261,20 @@ Setup () {
 
 int
 main (int argc, char ** argv) {
-	// FISH_X1_TRANSFER    *pTArea;
 	int branch_idx = 0,
 		branch_count = ctx.branch_count;
 
-	Setup ();
-	while(1) {
-		for (branch_idx = 0; branch_idx < branch_count; branch_idx++) {
-			handle_branch_flow (branch_idx);
-		}
+	if (StartTxtDownloadProg() == KELIB_ERROR_NONE) {
+		pTArea = GetKeLibTransferAreaMainAddress();
+        
+        if (pTArea) {
+        	Setup ();
+			while(1) {
+				for (branch_idx = 0; branch_idx < branch_count; branch_idx++) {
+					handle_branch_flow (branch_idx);
+				}
+			}
+        }
 	}
 	
     return 0;
