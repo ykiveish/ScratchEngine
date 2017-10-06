@@ -18,7 +18,8 @@
 #include "KeLibTxtDl.h"          // TXT Lib
 #include "FtShmem.h"             // TXT Transfer Area
 
-// #include <stdio.h>
+#include <stdio.h>
+#include <unistd.h>
 
 #define TRUE 								1
 #define FALSE 								0
@@ -33,6 +34,7 @@
 #define FLOW_START 							0
 #define FLOW_END 							MAX_SCRATCH_NODES
 
+#define SCRATCH_NODE_EXIT					0
 #define SCRATCH_NODE_MOTOR_ENGINE			1
 #define SCRATCH_NODE_ULTRASONIC_SENSOR		2
 #define SCRATCH_NODE_FOR					10
@@ -45,16 +47,24 @@
 
 #define SCRATCH_COMPARE_TYPE_LESS			1
 
+#define SCRATCH_ACTION_SET_VAR_STATIC		1
+
 void OperateMotor ();
 float ReadSensor ();
 
 struct global_vars {
 	/*[GLOBALS]*/
 };
+struct global_vars g_vars;
 
 struct scratch_action_compare {
 	int 	type;
 	int		compare_type;
+};
+
+struct scratch_action_set_static_var {
+	int 	type;
+	float	value;
 };
 
 struct parameter {
@@ -191,14 +201,25 @@ handle_branch_flow (int branch_idx) {
 		case SCRATCH_NODE_IF:
 			// Check the condition.
 		break;
-		case SCRATCH_NODE_VARIABLE:
-			// Update variable.
+		case SCRATCH_NODE_VARIABLE: {
+			int type = ((struct scratch_action_set_static_var *)(current_node->action))->type;
+			switch (type) {
+				case SCRATCH_ACTION_SET_VAR_STATIC:{
+					struct scratch_action_set_static_var * action = (struct scratch_action_set_static_var *)current_node->action;
+					*((float *)current_node->data) = action->value;
+				}
+				break;
+				default:
+				break;
+			}
+		}
 		break;
 		case SCRATCH_NODE_WAIT:
-			// Just pause.
+			usleep (*((float *)current_node->data));
 		break;
 		case SCRATCH_NODE_END_LOOPS:
-			// Jump to start loop node.
+			ctx.branch[branch_idx].current = current_node->next;
+			return;
 		break;
 		default:
 		break;
@@ -211,7 +232,12 @@ handle_branch_flow (int branch_idx) {
 
 void 
 Setup () {
+	int idx = 0;
 	ctx.monitor_blocks_count = 0;
+
+	for (idx = 0; idx < MAX_SCRATCH_NODES; idx++) {
+		((struct scratch_node *)scratch_node_list[MAX_SCRATCH_NODES])->type = SCRATCH_NODE_EXIT;
+	}
 
 	sensor_db_init (&sesnor_list);
 	
@@ -232,10 +258,12 @@ main (int argc, char ** argv) {
 		branch_count = ctx.branch_count;
 
 	Setup ();
-	for (branch_idx = 0; branch_idx < branch_count; branch_idx++) {
-		handle_branch_flow (branch_idx);
+	while(1) {
+		for (branch_idx = 0; branch_idx < branch_count; branch_idx++) {
+			handle_branch_flow (branch_idx);
+		}
 	}
-
+	
     return 0;
 }
 

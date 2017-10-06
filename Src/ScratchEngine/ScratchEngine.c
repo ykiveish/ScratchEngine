@@ -18,7 +18,8 @@
 #include "KeLibTxtDl.h"          // TXT Lib
 #include "FtShmem.h"             // TXT Transfer Area
 
-// #include <stdio.h>
+#include <stdio.h>
+#include <unistd.h>
 
 #define TRUE 								1
 #define FALSE 								0
@@ -33,6 +34,7 @@
 #define FLOW_START 							0
 #define FLOW_END 							MAX_SCRATCH_NODES
 
+#define SCRATCH_NODE_EXIT					0
 #define SCRATCH_NODE_MOTOR_ENGINE			1
 #define SCRATCH_NODE_ULTRASONIC_SENSOR		2
 #define SCRATCH_NODE_FOR					10
@@ -45,6 +47,8 @@
 
 #define SCRATCH_COMPARE_TYPE_LESS			1
 
+#define SCRATCH_ACTION_SET_VAR_STATIC		1
+
 void OperateMotor ();
 float ReadSensor ();
 
@@ -53,10 +57,16 @@ struct global_vars {
 	float var_3;
 	float var_2;
 };
+struct global_vars g_vars;
 
 struct scratch_action_compare {
 	int 	type;
 	int		compare_type;
+};
+
+struct scratch_action_set_static_var {
+	int 	type;
+	float	value;
 };
 
 struct parameter {
@@ -123,7 +133,9 @@ struct global_sensors {
 struct global_sensors g_sensors;
 
 struct global_actions {
-	/*[ACTIONS]*/
+	struct scratch_action_set_static_var actionSetStaticVariable_1;
+	struct scratch_action_set_static_var actionSetStaticVariable_2;
+	struct scratch_action_set_static_var actionSetStaticVariable_3;
 };
 struct global_actions g_actions;
 
@@ -201,14 +213,25 @@ handle_branch_flow (int branch_idx) {
 		case SCRATCH_NODE_IF:
 			// Check the condition.
 		break;
-		case SCRATCH_NODE_VARIABLE:
-			// Update variable.
+		case SCRATCH_NODE_VARIABLE: {
+			int type = ((struct scratch_action_set_static_var *)(current_node->action))->type;
+			switch (type) {
+				case SCRATCH_ACTION_SET_VAR_STATIC:{
+					struct scratch_action_set_static_var * action = (struct scratch_action_set_static_var *)current_node->action;
+					*((float *)current_node->data) = action->value;
+				}
+				break;
+				default:
+				break;
+			}
+		}
 		break;
 		case SCRATCH_NODE_WAIT:
-			// Just pause.
+			usleep (*((float *)current_node->data));
 		break;
 		case SCRATCH_NODE_END_LOOPS:
-			// Jump to start loop node.
+			ctx.branch[branch_idx].current = current_node->next;
+			return;
 		break;
 		default:
 		break;
@@ -221,7 +244,12 @@ handle_branch_flow (int branch_idx) {
 
 void 
 Setup () {
+	int idx = 0;
 	ctx.monitor_blocks_count = 0;
+
+	for (idx = 0; idx < MAX_SCRATCH_NODES; idx++) {
+		((struct scratch_node *)scratch_node_list[MAX_SCRATCH_NODES])->type = SCRATCH_NODE_EXIT;
+	}
 
 	sensor_db_init (&sesnor_list);
 	
@@ -246,38 +274,55 @@ Setup () {
 	g_nodes.distSensorMonitor.index = 0;
 	g_nodes.distSensorMonitor.data = (void *)&(g_sensors.distSensor);
 	g_nodes.distSensorMonitor.type = SCRATCH_NODE_ULTRASONIC_SENSOR;
+	g_nodes.distSensorMonitor.next = (struct scratch_node *)&scratch_node_list[g_nodes.distSensorMonitor.index + 1];
 	
 	ctx.monitor_blocks[++ctx.monitor_blocks_count] = (void *)&(g_nodes.distSensorMonitor);
 	g_nodes.setVariable_1.index = 1;
 	g_nodes.setVariable_1.data = (void *)&(globals.var_1);
 	g_nodes.setVariable_1.type = SCRATCH_NODE_VARIABLE;
+	g_actions.actionSetStaticVariable_1.type = SCRATCH_ACTION_SET_VAR_STATIC;
+	g_actions.actionSetStaticVariable_1.value = 50;
+	g_nodes.setVariable_1.action = (void *)&(g_actions.actionSetStaticVariable_1);
+	g_nodes.setVariable_1.next = (struct scratch_node *)&scratch_node_list[g_nodes.setVariable_1.index + 1];
 	
 	g_nodes.setVariable_2.index = 2;
 	g_nodes.setVariable_2.data = (void *)&(globals.var_2);
 	g_nodes.setVariable_2.type = SCRATCH_NODE_VARIABLE;
+	g_actions.actionSetStaticVariable_2.type = SCRATCH_ACTION_SET_VAR_STATIC;
+	g_actions.actionSetStaticVariable_2.value = 5;
+	g_nodes.setVariable_2.action = (void *)&(g_actions.actionSetStaticVariable_2);
+	g_nodes.setVariable_2.next = (struct scratch_node *)&scratch_node_list[g_nodes.setVariable_2.index + 1];
 	
 	g_nodes.setVariable_3.index = 3;
 	g_nodes.setVariable_3.data = (void *)&(globals.var_3);
 	g_nodes.setVariable_3.type = SCRATCH_NODE_VARIABLE;
+	g_actions.actionSetStaticVariable_3.type = SCRATCH_ACTION_SET_VAR_STATIC;
+	g_actions.actionSetStaticVariable_3.value = 6;
+	g_nodes.setVariable_3.action = (void *)&(g_actions.actionSetStaticVariable_3);
+	g_nodes.setVariable_3.next = (struct scratch_node *)&scratch_node_list[g_nodes.setVariable_3.index + 1];
 	
 	g_nodes.forLoop_1.index = 4;
 	g_nodes.forLoop_1.type = SCRATCH_NODE_FOR;
 	ctx.forLoop_1.limit = 10;
 	ctx.forLoop_1.index = 0;
 	g_nodes.forLoop_1.data = (void *)&(ctx.forLoop_1);
+	g_nodes.forLoop_1.next = (struct scratch_node *)&scratch_node_list[g_nodes.forLoop_1.index + 1];
 	
 	g_nodes.doSetMotorSpeedDirDistSync.index = 5;
 	g_nodes.doSetMotorSpeedDirDistSync.data = (void *)&(g_sensors.motor);
 	g_nodes.doSetMotorSpeedDirDistSync.type = SCRATCH_NODE_MOTOR_ENGINE;
+	g_nodes.doSetMotorSpeedDirDistSync.next = (struct scratch_node *)&scratch_node_list[g_nodes.doSetMotorSpeedDirDistSync.index + 1];
 	
 	g_nodes.waitCmd_3.index = 6;
 	g_nodes.waitCmd_3.data = (void *)&(globals.var_3);
 	g_nodes.waitCmd_3.type = SCRATCH_NODE_WAIT;
+	g_nodes.waitCmd_3.next = (struct scratch_node *)&scratch_node_list[g_nodes.waitCmd_3.index + 1];
 	
 	g_nodes.forLoopEnd_1.index = 7;
 	g_nodes.forLoopEnd_1.jump = &(g_nodes.forLoop_1);
 	ctx.forLoop_1.node = &(g_nodes.forLoopEnd_1);
 	g_nodes.forLoopEnd_1.type = SCRATCH_NODE_END_LOOPS;
+	g_nodes.forLoopEnd_1.next = (struct scratch_node *)&scratch_node_list[g_nodes.forLoopEnd_1.index + 1];
 	
 	
 	// Build the flow.
@@ -299,10 +344,12 @@ main (int argc, char ** argv) {
 		branch_count = ctx.branch_count;
 
 	Setup ();
-	for (branch_idx = 0; branch_idx < branch_count; branch_idx++) {
-		handle_branch_flow (branch_idx);
+	while(1) {
+		for (branch_idx = 0; branch_idx < branch_count; branch_idx++) {
+			handle_branch_flow (branch_idx);
+		}
 	}
-
+	
     return 0;
 }
 

@@ -13,6 +13,7 @@ InitNodes = ""
 AddNodes = ""
 Flow = ""
 GlobalData = ""
+Action = ""
 SensorTableTranslator = {}
 Pinouts = {}
 
@@ -102,7 +103,8 @@ class CScriptParser:
 					Nodes = Nodes + "struct scratch_node distSensorMonitor;\n\t"
 					InitNodes = InitNodes + "g_nodes.distSensorMonitor.index = " + str(FlowIndex) + ";\n\t"
 					InitNodes = InitNodes + "g_nodes.distSensorMonitor.data = (void *)&(g_sensors.distSensor);\n\t"
-					InitNodes = InitNodes + "g_nodes.distSensorMonitor.type = SCRATCH_NODE_ULTRASONIC_SENSOR;\n\t\n\t"
+					InitNodes = InitNodes + "g_nodes.distSensorMonitor.type = SCRATCH_NODE_ULTRASONIC_SENSOR;\n\t"
+					InitNodes = InitNodes + "g_nodes.distSensorMonitor.next = (struct scratch_node *)&scratch_node_list[g_nodes.distSensorMonitor.index + 1];\n\t\n\t"
 
 					# Add monitor
 					InitNodes = InitNodes + "ctx.monitor_blocks[++ctx.monitor_blocks_count] = (void *)&(g_nodes.distSensorMonitor);\n\t"
@@ -138,7 +140,8 @@ class CScriptParser:
 			Nodes = Nodes + "struct scratch_node doSetMotorSpeedDirDistSync;\n\t"
 			InitNodes = InitNodes + "g_nodes.doSetMotorSpeedDirDistSync.index = " + str(FlowIndex) + ";\n\t"
 			InitNodes = InitNodes + "g_nodes.doSetMotorSpeedDirDistSync.data = (void *)&(g_sensors.motor);\n\t"
-			InitNodes = InitNodes + "g_nodes.doSetMotorSpeedDirDistSync.type = SCRATCH_NODE_MOTOR_ENGINE;\n\t\n\t"
+			InitNodes = InitNodes + "g_nodes.doSetMotorSpeedDirDistSync.type = SCRATCH_NODE_MOTOR_ENGINE;\n\t"
+			InitNodes = InitNodes + "g_nodes.doSetMotorSpeedDirDistSync.next = (struct scratch_node *)&scratch_node_list[g_nodes.doSetMotorSpeedDirDistSync.index + 1];\n\t\n\t"
 			Flow = Flow + "scratch_node_list[" + str(FlowIndex) + "] = (void *)&g_nodes.doSetMotorSpeedDirDistSync;\n\t";
 			FlowIndex = FlowIndex + 1
 			# print "_SET_MOTOR_POWER_ON_SPEED_DIRECTION_"
@@ -149,6 +152,7 @@ class CScriptParser:
 		global Flow
 		global FlowIndex
 		global GlobalData
+		global Action
 		
 		for block in flow:
 			Header = block[0]
@@ -157,10 +161,19 @@ class CScriptParser:
 			elif "setVar:to:" in Header:
 				# print "_SET_VARIABLE_VALUE_"
 				VarId = self.VariabesTBLTranslator.Get(block[1])
+
+				# Add action.
+				Action = Action + "struct scratch_action_set_static_var actionSetStaticVariable_" + str(VarId) + ";\n\t"
+				# Add node.
 				Nodes = Nodes + "struct scratch_node setVariable_" + str(VarId) + ";\n\t"
 				InitNodes = InitNodes + "g_nodes.setVariable_" + str(VarId) + ".index = " + str(FlowIndex) + ";\n\t"
 				InitNodes = InitNodes + "g_nodes.setVariable_" + str(VarId) + ".data = (void *)&(globals.var_" + str(VarId) + ");\n\t"
-				InitNodes = InitNodes + "g_nodes.setVariable_" + str(VarId) + ".type = SCRATCH_NODE_VARIABLE;\n\t\n\t"
+				InitNodes = InitNodes + "g_nodes.setVariable_" + str(VarId) + ".type = SCRATCH_NODE_VARIABLE;\n\t"
+				InitNodes = InitNodes + "g_actions.actionSetStaticVariable_" + str(VarId) + ".type = SCRATCH_ACTION_SET_VAR_STATIC;\n\t"
+				InitNodes = InitNodes + "g_actions.actionSetStaticVariable_" + str(VarId) + ".value = " + str(block[2]) + ";\n\t"
+				InitNodes = InitNodes + "g_nodes.setVariable_" + str(VarId) + ".action = (void *)&(g_actions.actionSetStaticVariable_" + str(VarId) + ");\n\t"
+				InitNodes = InitNodes + "g_nodes.setVariable_" + str(VarId) + ".next = (struct scratch_node *)&scratch_node_list[g_nodes.setVariable_" + str(VarId) + ".index + 1];\n\t\n\t"
+
 				Flow = Flow + "scratch_node_list[" + str(FlowIndex) + "] = (void *)&g_nodes.setVariable_" + str(VarId) + ";\n\t"
 				FlowIndex = FlowIndex + 1
 			elif "wait:elapsed:from:" in Header:
@@ -170,7 +183,8 @@ class CScriptParser:
 				Nodes = Nodes + "struct scratch_node waitCmd_" + str(VarId) + ";\n\t"
 				InitNodes = InitNodes + "g_nodes.waitCmd_" + str(VarId) + ".index = " + str(FlowIndex) + ";\n\t"
 				InitNodes = InitNodes + "g_nodes.waitCmd_" + str(VarId) + ".data = (void *)&(globals.var_" + str(VarId) + ");\n\t"
-				InitNodes = InitNodes + "g_nodes.waitCmd_" + str(VarId) + ".type = SCRATCH_NODE_WAIT;\n\t\n\t"
+				InitNodes = InitNodes + "g_nodes.waitCmd_" + str(VarId) + ".type = SCRATCH_NODE_WAIT;\n\t"
+				InitNodes = InitNodes + "g_nodes.waitCmd_" + str(VarId) + ".next = (struct scratch_node *)&scratch_node_list[g_nodes.waitCmd_" + str(VarId) + ".index + 1];\n\t\n\t"
 				Flow = Flow + "scratch_node_list[" + str(FlowIndex) + "] = (void *)&g_nodes.waitCmd_" + str(VarId) + ";\n\t"
 				FlowIndex = FlowIndex + 1
 			elif "doRepeat" in Header:
@@ -183,7 +197,8 @@ class CScriptParser:
 				GlobalData = GlobalData + "struct scratch_loop_data forLoop_" + str(LoopIndex) + ";\n\t"
 				InitNodes = InitNodes + "ctx.forLoop_" + str(LoopIndex) + ".limit = " + str(block[1]) + ";\n\t"
 				InitNodes = InitNodes + "ctx.forLoop_" + str(LoopIndex) + ".index = 0;\n\t"
-				InitNodes = InitNodes + "g_nodes.forLoop_" + str(LoopIndex) + ".data = (void *)&(ctx.forLoop_" + str(LoopIndex) + ");\n\t\n\t"
+				InitNodes = InitNodes + "g_nodes.forLoop_" + str(LoopIndex) + ".data = (void *)&(ctx.forLoop_" + str(LoopIndex) + ");\n\t"
+				InitNodes = InitNodes + "g_nodes.forLoop_" + str(LoopIndex) + ".next = (struct scratch_node *)&scratch_node_list[g_nodes.forLoop_" + str(LoopIndex) + ".index + 1];\n\t\n\t"
 				FlowIndex = FlowIndex + 1
 				self.ParseBlocks(block[2])
 				if "REPEAT_FLOW" in self.FlowControl.pop():
@@ -192,7 +207,8 @@ class CScriptParser:
 					InitNodes = InitNodes + "g_nodes.forLoopEnd_" + str(LoopIndex) + ".index = " + str(FlowIndex) + ";\n\t"
 					InitNodes = InitNodes + "g_nodes.forLoopEnd_" + str(LoopIndex) + ".jump = &(g_nodes.forLoop_" + str(LoopIndex) + ");\n\t"
 					InitNodes = InitNodes + "ctx.forLoop_" + str(LoopIndex) + ".node = &(g_nodes.forLoopEnd_" + str(LoopIndex) + ");\n\t"
-					InitNodes = InitNodes + "g_nodes.forLoopEnd_" + str(LoopIndex) + ".type = SCRATCH_NODE_END_LOOPS;\n\t\n\t"
+					InitNodes = InitNodes + "g_nodes.forLoopEnd_" + str(LoopIndex) + ".type = SCRATCH_NODE_END_LOOPS;\n\t"
+					InitNodes = InitNodes + "g_nodes.forLoopEnd_" + str(LoopIndex) + ".next = (struct scratch_node *)&scratch_node_list[g_nodes.forLoopEnd_" + str(LoopIndex) + ".index + 1];\n\t\n\t"
 					Flow = Flow + "scratch_node_list[" + str(FlowIndex) + "] = (void *)&g_nodes.forLoopEnd_" + str(LoopIndex) + ";\n\t";
 					FlowIndex = FlowIndex + 1
 				else:
@@ -206,6 +222,7 @@ class CScriptParser:
 		global InitNodes
 		global Flow
 		global GlobalData
+		global Action
 		
 		for flow in script:
 			# print "FLOW"
@@ -222,6 +239,7 @@ class CScriptParser:
 		InitNodes = InitNodes[:-2]
 		Flow = Flow[:-2]
 		GlobalData = GlobalData[:-2]
+		Action = Action[:-2]
 		
 		Code = Code.replace("/*[SENSORS]*/", Sensors);
 		Code = Code.replace("/*[ADD_SENSORS]*/", AddSensors);
@@ -229,6 +247,7 @@ class CScriptParser:
 		Code = Code.replace("/*[INIT_FLOW]*/", InitNodes);
 		Code = Code.replace("/*[FLOW]*/", Flow);
 		Code = Code.replace("/*[GLOBAL_DATA]*/", GlobalData);
+		Code = Code.replace("/*[ACTIONS]*/", Action);
 
 tblVarTranc = CVariabesTBLTranslator()
 parser = CScriptParser(tblVarTranc)
